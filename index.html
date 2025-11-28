@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Calcio 1v1 — Completo</title>
+<style>
+body {
+    margin: 0;
+    background: linear-gradient(#87ceeb, #5bb3e0);
+    font-family: Arial;
+    user-select: none;
+}
+
+/* MENU */
+#menu {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 9999;
+}
+
+#menu input, #menu select {
+    font-size: 22px;
+    padding: 10px;
+    margin: 10px;
+    width: 280px;
+    text-align: center;
+}
+
+#menu button {
+    font-size: 28px;
+    padding: 10px 25px;
+    margin-top: 15px;
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    background: yellow;
+    color: black;
+}
+
+/* SCORE BAR */
+#scorebar {
+    width: 100%;
+    height: 70px;
+    background: rgba(0,0,0,0.65);
+    color: white;
+    font-size: 35px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 50px;
+    text-shadow: 3px 3px 6px black;
+}
+
+/* CAMPO */
+#campo {
+    position: relative;
+    width: 1200px;
+    height: 700px;
+    margin: 10px auto;
+    border: 5px solid white;
+    background: linear-gradient(to bottom, #1ca64c, #0a7f32);
+    background-size: 400% 400%;
+    animation: grass 10s ease infinite;
+}
+
+@keyframes grass {
+    0% { background-position: 0 0; }
+    50% { background-position: 100% 100%; }
+    100% { background-position: 0 0; }
+}
+
+/* Oggetti */
+.cerchio { position: absolute; border-radius: 50%; }
+
+#p1, #p2 {
+    width: 40px;
+    height: 40px;
+}
+
+#palla {
+    width: 25px;
+    height: 25px;
+    background: white;
+    border-radius: 50%;
+}
+
+/* Porte */
+.porta {
+    position: absolute;
+    width: 50px;
+    height: 150px;
+    top: 275px;
+    border: 5px solid white;
+    box-shadow: 0 0 20px yellow;
+}
+
+#porta-sx { left: 0; }
+#porta-dx { right: 0; }
+
+/* GOL */
+#gol {
+    position: absolute;
+    top: 200px;
+    left: 300px;
+    width: 600px;
+    text-align: center;
+    font-size: 90px;
+    color: yellow;
+    text-shadow: 5px 5px 25px red;
+    display: none;
+}
+
+/* Simple effects */
+.shake { animation: shakeFX .2s; }
+@keyframes shakeFX {
+    0% { transform: translate(0,0); }
+    25% { transform: translate(8px,-6px); }
+    50% { transform: translate(-8px,8px); }
+    75% { transform: translate(6px,-4px); }
+    100% { transform: translate(0,0); }
+}
+</style>
+</head>
+<body>
+
+<!-- MENU -->
+<div id="menu">
+    <h1>Calcio 1v1</h1>
+
+    <input id="name1" placeholder="Nome Giocatore 1 (WASD o Joystick 1)">
+    <select id="color1">
+        <option value="red">Rosso</option>
+        <option value="orange">Arancione</option>
+        <option value="yellow">Giallo</option>
+        <option value="green">Verde</option>
+        <option value="blue">Blu</option>
+        <option value="indigo">Indaco</option>
+        <option value="violet">Violetto</option>
+    </select>
+
+    <input id="name2" placeholder="Nome Giocatore 2 (Frecce o Joystick 2)">
+    <select id="color2">
+        <option value="red">Rosso</option>
+        <option value="orange">Arancione</option>
+        <option value="yellow">Giallo</option>
+        <option value="green">Verde</option>
+        <option value="blue">Blu</option>
+        <option value="indigo">Indaco</option>
+        <option value="violet">Violetto</option>
+    </select>
+
+    <button onclick="startGame()">Inizia Partita</button>
+</div>
+
+<!-- SCORE BAR -->
+<div id="scorebar">
+    <span id="scoretext">0 - 0</span>
+    <span id="timer">⏱️ 90</span>
+</div>
+
+<!-- CAMPO -->
+<div id="campo">
+    <div id="p1" class="cerchio"></div>
+    <div id="p2" class="cerchio"></div>
+    <div id="palla" class="cerchio"></div>
+
+    <div id="porta-sx" class="porta"></div>
+    <div id="porta-dx" class="porta"></div>
+
+    <div id="gol">GOOOL!</div>
+</div>
+
+<script>
+/* VARIABILI */
+let nome1 = "Giocatore 1";
+let nome2 = "Giocatore 2";
+
+let p1x=200, p1y=300;
+let p2x=900, p2y=300;
+
+let px=550, py=330;
+let vx=0, vy=0;
+
+let score1=0, score2=0;
+
+const speed = 5;
+const keys = {};
+let time = 90;
+let timerActive = false;
+let timerInterval = null;
+
+/* ELEMENTI */
+const p1 = document.getElementById("p1");
+const p2 = document.getElementById("p2");
+const palla = document.getElementById("palla");
+const portaSX = document.getElementById("porta-sx");
+const portaDX = document.getElementById("porta-dx");
+const gol = document.getElementById("gol");
+const campo = document.getElementById("campo");
+const scoretext = document.getElementById("scoretext");
+const timer = document.getElementById("timer");
+
+/* TASTIERA */
+document.addEventListener("keydown", e => keys[e.key] = true );
+document.addEventListener("keyup", e => keys[e.key] = false );
+
+/* AVVIO GIOCO */
+function startGame(){
+    let n1 = document.getElementById("name1").value.trim();
+    let n2 = document.getElementById("name2").value.trim();
+
+    nome1 = n1 || "Giocatore 1";
+    nome2 = n2 || "Giocatore 2";
+
+    p1.style.background = document.getElementById("color1").value;
+    p2.style.background = document.getElementById("color2").value;
+
+    updateScore();
+    startTimer();
+
+    document.getElementById("menu").style.display = "none";
+}
+
+/* TIMER */
+function startTimer(){
+    timerActive = true;
+    time = 90;
+    timer.textContent = "⏱️ " + time;
+
+    timerInterval = setInterval(()=>{
+        time--;
+        timer.textContent = "⏱️ " + time;
+        if(time <= 0) endMatch();
+    },1000);
+}
+
+/* FINE PARTITA */
+function endMatch(){
+    timerActive = false;
+    clearInterval(timerInterval);
+
+    let msg = "";
+    if(score1 > score2) msg = nome1 + " VINCE! 🏆";
+    else if(score2 > score1) msg = nome2 + " VINCE! 🏆";
+    else msg = "PAREGGIO! 🤝";
+
+    gol.style.display = "block";
+    gol.textContent = msg;
+
+    vx = vy = 0;
+
+    setTimeout(()=>{ location.reload(); },3500);
+}
+
+/* RESET */
+function resetPositions(){
+    p1x=200; p1y=300;
+    p2x=900; p2y=300;
+    px=550; py=330;
+    vx=vy=0;
+}
+
+function updateScore(){
+    scoretext.textContent = `${nome1}: ${score1}  |  ${nome2}: ${score2}`;
+}
+
+/* COLLISIONE */
+function collide(ax,ay,bx,by,dist){
+    const dx = ax - bx;
+    const dy = ay - by;
+    return dx*dx + dy*dy < dist*dist;
+}
+
+/* GAMEPAD SUPPORT */
+let gamepads = [];
+
+window.addEventListener("gamepadconnected", (e) => {
+    gamepads[e.gamepad.index] = e.gamepad;
+});
+
+window.addEventListener("gamepaddisconnected", (e) => {
+    delete gamepads[e.gamepad.index];
+});
+
+/* LOOP PRINCIPALE */
+function loop(){
+
+    if(!timerActive) return requestAnimationFrame(loop);
+
+    // PLAYER 1 – TASTIERA WASD
+    if(keys["w"]) p1y -= speed;
+    if(keys["s"]) p1y += speed;
+    if(keys["a"]) p1x -= speed;
+    if(keys["d"]) p1x += speed;
+
+    // PLAYER 2 – TASTIERA FRECCE
+    if(keys["ArrowUp"])    p2y -= speed;
+    if(keys["ArrowDown"])  p2y += speed;
+    if(keys["ArrowLeft"])  p2x -= speed;
+    if(keys["ArrowRight"]) p2x += speed;
+
+    // PLAYER 1/2 – GAMEPAD
+    const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+    if(gps[0]){
+        let gp = gps[0];
+        p1x += gp.axes[0]*speed*1.5;
+        p1y += gp.axes[1]*speed*1.5;
+    }
+    if(gps[1]){
+        let gp = gps[1];
+        p2x += gp.axes[0]*speed*1.5;
+        p2y += gp.axes[1]*speed*1.5;
+    }
+
+    // LIMITI CAMPO
+    p1x = Math.max(0, Math.min(1160, p1x));
+    p1y = Math.max(0, Math.min(660, p1y));
+    p2x = Math.max(0, Math.min(1160, p2x));
+    p2y = Math.max(0, Math.min(660, p2y));
+
+    p1.style.left = p1x+"px";
+    p1.style.top  = p1y+"px";
+    p2.style.left = p2x+"px";
+    p2.style.top  = p2y+"px";
+
+    /* COLLISIONE PALLA */
+    if(collide(px,py,p1x,p1y,40)){
+        let dx = px - p1x;
+        let dy = py - p1y;
+        let d = Math.sqrt(dx*dx+dy*dy);
+        vx = (dx/d)*13;
+        vy = (dy/d)*13;
+    }
+    if(collide(px,py,p2x,p2y,40)){
+        let dx = px - p2x;
+        let dy = py - p2y;
+        let d = Math.sqrt(dx*dx+dy*dy);
+        vx = (dx/d)*13;
+        vy = (dy/d)*13;
+    }
+
+    // Movimento palla
+    px += vx;
+    py += vy;
+
+    if(px < 0){ px=0; vx=-vx*0.8; }
+    if(px > 1175){ px=1175; vx=-vx*0.8; }
+    if(py < 0){ py=0; vy=-vy*0.8; }
+    if(py > 675){ py=675; vy=-vy*0.8; }
+
+    vx *= 0.99;
+    vy *= 0.99;
+
+    palla.style.left = px+"px";
+    palla.style.top  = py+"px";
+
+    // GOL A DESTRA
+    let bP = palla.getBoundingClientRect();
+    let bDX = portaDX.getBoundingClientRect();
+
+    if(bP.right >= bDX.left &&
+       bP.top >= bDX.top &&
+       bP.bottom <= bDX.bottom){
+        score1++;
+        updateScore();
+        campo.classList.add("shake");
+        setTimeout(()=>campo.classList.remove("shake"),200);
+        resetPositions();
+    }
+
+    // GOL A SINISTRA
+    let bSX = portaSX.getBoundingClientRect();
+    if(bP.left <= bSX.right &&
+       bP.top >= bSX.top &&
+       bP.bottom <= bSX.bottom){
+        score2++;
+        updateScore();
+        campo.classList.add("shake");
+        setTimeout(()=>campo.classList.remove("shake"),200);
+        resetPositions();
+    }
+
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
